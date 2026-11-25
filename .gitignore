@@ -1,0 +1,52 @@
+# Secrets and local configuration. A sanitized example may be committed.
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python environments, caches and test artifacts.
+.venv/
+/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+/.test_runs/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+/build/
+/dist/
+
+# Local driver data and databases. Keep sanitized test fixtures tracked.
+/data/
+/uploads/
+/sample_data/
+/assets/
+/WEBHOOK_V2.md
+/DriverDvirData*.json
+/COGOELD DATA TABLES.json
+/TruckMate with Driver Vacation.json
+*.sqlite*
+*.db
+N8NSUPPORTING/
+
+# Generated reports, previews and logs. Keep the blank Excel asset tracked.
+/reports/
+/docs/
+/outputs/
+/logs/
+*.log
+*.xlsx.inspect.ndjson
+
+# Dependency links and local editor or Office temporary files.
+node_modules/
+~$*
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini

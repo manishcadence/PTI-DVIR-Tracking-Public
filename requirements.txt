@@ -1,0 +1,10 @@
+streamlit>=1.67,<2
+pandas>=2.2,<4
+plotly>=6,<7
+requests>=2.32,<3
+pydantic>=2.10,<3
+python-dotenv>=1,<2
+pytest>=8,<10
+tzdata
+openpyxl>=3.1,<4
+xlrd>=2,<3
