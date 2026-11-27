@@ -1,5 +1,30 @@
 # Fleet DVIR dashboard — local uploads only
 
+Overview now opens with a 15-day stakeholder snapshot: roster drivers, own or
+co-driver coverage, inspection entries, days off, training completion and recent
+training, consistency and daily trends. The snapshot always uses 15 dates ending
+on Report ending. No days off reported combines zero and Not supplied, while
+driver lists retain the source information. Tracking list opens the matching
+drivers, profile links and filtered CSV. The original analysis and heatmaps remain
+under Detailed driver analysis and heatmap, using the sidebar's 7/15-day period.
+Days-off coverage means a driver has at least one day off and an own/linked DVIR
+somewhere in the same period. A separate card/list checks actual own DVIR dates
+against the driver's reported dates off. Training review highlights Not done
+drivers with own dated DVIRs, separates partner-only coverage, and shows the five
+most recent submitters for checking training records. Full lists remain downloadable.
+The overview is ordered as headline counts, days-off recording gaps, charts and
+daily trends, training status/review with the top five table, then driver lists.
+Training details sit below the visuals; navigation and the detailed heatmap remain.
+Training top-five review includes own dated records across the whole uploaded file
+up to Report ending, including drivers with zero submissions in the last 15 days.
+Both whole-file and 15-day counts are shown. Section and chart headings explain
+the counting scope; exact-date days-off matches sit in a collapsed Data check.
+Overview metrics use themed cards with visible scope descriptions. Tracking lists
+include Data checks, Check details and Suggested next step. Findings include the
+driver's own source checks and explicitly linked partners, plus contextual training,
+submission and dates-off follow-up. Informational source notes stay distinct from
+review flags. These suggestions do not change source data or establish a violation.
+
 For routine tracking, share the [stakeholder guide with filter examples](docs/DVIR_Stakeholder_Guide_Revised.docx).
 It covers only the simple report, its dropdown filters, downloads and training
 follow-up, without the detailed Backend screens.

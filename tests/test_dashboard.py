@@ -58,7 +58,7 @@ def test_uploaded_file_loads_without_sqlite_or_network_and_navigates():
     with upload_mock(),patch('sqlite3.connect',side_effect=AssertionError('No database')),patch('requests.Session.get') as get:
         dashboard=app().run()
         assert not dashboard.exception
-        assert [m.value for m in dashboard.metric]==['3','1','1','1']
+        assert [m.value for m in dashboard.metric if m.label in ('Roster drivers','Solo with DVIR','Co-driver roster','Solo without DVIR')]==['3','1','1','1']
         for file in ['2_Driver_Consistency.py','10_Without_DVIR.py','4_Co_Driver_Analysis.py','3_Driver_Profiles.py','9_Unmatched_Review.py','1_Fleet_Overview.py']:
             dashboard.switch_page('pages/'+file).run()
             assert not dashboard.exception
@@ -118,7 +118,7 @@ def test_replacing_upload_replaces_session_dataset():
         dashboard=app().run()
         value=BytesIO(json.dumps([rows()[2]]).encode());dashboard.run()
         assert not dashboard.exception
-        assert [m.value for m in dashboard.metric]==['1','0','0','1']
+        assert [m.value for m in dashboard.metric if m.label in ('Roster drivers','Solo with DVIR','Co-driver roster','Solo without DVIR')]==['1','0','0','1']
         assert dashboard.session_state['upload_context'].report.events.empty
 
 
@@ -162,7 +162,7 @@ def test_navigation_categories_never_share_a_primary_driver():
     data=rows();data[1]['PTITraining']='DONE';data[2]['PTITraining']='DONE'
     with upload_mock(data):
         dashboard=app().run()
-        assert [m.value for m in dashboard.metric]==['3','1','1','1']
+        assert [m.value for m in dashboard.metric if m.label in ('Roster drivers','Solo with DVIR','Co-driver roster','Solo without DVIR')]==['3','1','1','1']
         dashboard.switch_page('pages/2_Driver_Consistency.py').run()
         assert set(dashboard.dataframe[0].value['Driver ID'])=={'C'}
         dashboard.switch_page('pages/10_Without_DVIR.py').run()
@@ -553,6 +553,7 @@ def test_simple_report_days_off_and_solo_history_filters_combine():
     with upload_mock(data):
         dashboard=app().run().switch_page('pages/12_Simple_Report.py').run()
         assert not dashboard.exception
+
         # The default never-recorded follow-up excludes positive days off.
         assert dashboard.tabs[4].dataframe[0].value['Driver ID'].tolist()==['E']
         dashboard.selectbox(key='view-stakeholder-days-off-No PTI in entire file').set_value('Has days off').run()
@@ -564,6 +565,44 @@ def test_simple_report_days_off_and_solo_history_filters_combine():
         dashboard.selectbox(key='view-stakeholder-solo-history').set_value('No record in entire file').run()
         assert dashboard.tabs[1].dataframe[0].value['Driver ID'].tolist()==['D']
         assert not dashboard.exception
+
+
+def test_tracking_snapshot_cards_and_dropdown_show_the_underlying_drivers():
+    with upload_mock():
+        dashboard=app().run()
+        cards={item.label:item.value for item in dashboard.metric}
+        assert cards['TruckMate roster drivers']=='3'
+        assert cards['Drivers with DVIR']=='2' and cards['Drivers without DVIR']=='1'
+        assert cards['DVIR submissions']=='4'
+        assert cards['Has days off']=='1' and cards['No days off reported']=='2'
+        assert cards['PTI training Done']=='1' and cards['PTI training Not done']=='2'
+        assert cards['Training Not done · own DVIR in 15 days']=='1'
+        assert cards['Training Not done · dated own DVIR in file']=='1'
+        assert cards['Drivers who submitted on a marked day off']=='0'
+        dashboard.selectbox(key='view-tracking-list').set_value('Training Not done · own DVIR in 15 days').run()
+        assert not dashboard.exception
+        assert dashboard.dataframe[0].value['Driver ID'].tolist()==['C']
+        assert dashboard.dataframe[0].value['PTI training'].tolist()==['Not done']
+        dashboard.selectbox(key='view-tracking-list').set_value('No DVIR · has days off').run()
+        assert not dashboard.exception
+        assert dashboard.dataframe[0].value['Driver ID'].tolist()==['D']
+        assert dashboard.dataframe[0].value['PTI training'].tolist()==['Not done']
+        dashboard.selectbox(key='view-tracking-list').set_value('With DVIR in these 15 days').run()
+        assert set(dashboard.dataframe[0].value['Driver ID'])=={'A','C'}
+
+
+def test_tracking_source_review_list_includes_explanations_and_next_steps():
+    data=rows();data[1]['totalPTI']=4
+    with upload_mock(data):
+        dashboard=app().run()
+        dashboard.selectbox(key='view-tracking-list').set_value('Source data checks only').run()
+        assert not dashboard.exception
+        frame=dashboard.dataframe[0].value
+        assert frame['Driver ID'].tolist()==['C']
+        assert {'Data checks','Check details','Suggested next step','Review category'}.issubset(frame.columns)
+        assert 'Reported count differs from timestamps' in frame.iloc[0]['Data checks']
+        assert 'training record' in frame.iloc[0]['Suggested next step']
+        assert any(link.proto.label=='Open all source checks and unmatched authors' for link in dashboard.get('page_link'))
 
 
 def test_excel_download_in_sidebar_is_available_from_any_page_and_clears():

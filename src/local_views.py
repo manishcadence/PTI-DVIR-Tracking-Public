@@ -14,7 +14,9 @@ from .components.dvir_calendar import calendar_figure
 PURPLE='#8b5bb5'
 DAYS_OFF_STATUS={'On holiday all period':'Days off all period','Partly on holiday':'Some days off',
                  'No holiday dates reported':'No days off reported','On holiday':'Day off'}
-LABELS={'safety_status_file':'Safety status (file)','safety_values_file':'All safety values (file)',
+LABELS={'data_checks':'Data checks','check_details':'Check details','suggested_next_step':'Suggested next step',
+        'review_category':'Review category','source_review_items':'Source review items',
+        'safety_status_file':'Safety status (file)','safety_values_file':'All safety values (file)',
         'dvir_coverage':'DVIR coverage (own or co-driver)','coverage_consistency':'Consistency (own or co-driver)',
         'covered_dates_in_period':'Dates covered (own or co-driver)','has_own_DVIR':'Own DVIR evidence (file)',
         'last_covered_dvir_in_file':'Latest own/co-driver DVIR date (file)','training_period_status':'Training relative to report','pti_training_status':'PTI training','pti_training_date':'Training date (uploaded)',
@@ -207,70 +209,76 @@ def event_table(events,c,key):
 
 
 def overview():
-    c,summary=context_summary();st.title('Fleet overview');caption(c)
-    roster=summary[summary.in_roster]
-    metrics([('Roster drivers',len(roster)),('Solo with DVIR',int(roster.category.eq('Solo with DVIR').sum())),
-             ('Co-driver roster',int(roster.category.eq('Co-driver').sum())),('Solo without DVIR',int(roster.category.eq('Solo without DVIR').sum()))])
-    st.caption('Each primary roster driver has exactly one source-based category: Co-driver first, then Solo with DVIR, then Solo without DVIR. Dates, status filters and graphs do not change that category. Partner detail is shown within the co-driver section.')
-    st.page_link('pages/11_TruckMate_Roster.py',label=f'Open main TruckMate roster · {len(roster):,} drivers · {int((~roster.has_covered_DVIR & roster.training_followup_eligible).sum()):,} needing no-DVIR follow-up')
-    partner_count=int(summary.loc[~summary.in_roster,'dated_PTIs'].sum())
-    st.markdown(f'**{int(roster.dated_PTIs.sum()):,} roster-driver DVIRs** and **{partner_count:,} partner/unmatched DVIRs** in this period · **{len(c.report.events):,} inspection entries** in the complete uploaded file.')
-    if roster.empty:
-        st.info('This upload contains no TruckMate roster rows. View Data checks & unmatched for its DVIR authors.');return
-    left,right=st.columns(2)
-    with left:
-        st.markdown('**DVIR consistency · own or co-driver submission**')
-        counts=roster.coverage_consistency.value_counts().rename_axis('activity').reset_index(name='drivers')
-        fig=px.bar(counts,x='drivers',y='activity',orientation='h',color='activity',
-                   color_discrete_map={'Regular':GREEN,'Intermittent':YELLOW,'No record in period':GRAY})
-        show(fig,'view-overview-consistency')
-    with right:
-        st.markdown('**Non-overlapping roster categories**')
-        counts=roster.category.value_counts().rename_axis('category').reset_index(name='drivers')
-        fig=px.pie(counts,names='category',values='drivers',hole=.65,color='category',
-                   color_discrete_map={'Co-driver':BLUE,'Solo with DVIR':GREEN,'Solo without DVIR':GRAY})
-        fig.update_traces(textinfo='label+value')
-        show(fig,'view-overview-categories')
-        st.caption(f'{int(roster.holiday_dates_in_period.gt(0).sum()):,} drivers have reported days off in this {len(c.dates)}-day period. Days off status is separate from category.')
-    daily_graph(roster,c,'overview')
-    left,right=st.columns(2)
-    with left:
-        st.markdown('**Highest own DVIR counts in the period**')
-        top=roster[roster.dated_PTIs.gt(0)].sort_values('dated_PTIs',ascending=False).head(15).copy()
-        if not top.empty:
-            top['driver']=top.driver_name+' ('+top.driver_id+')'
-            fig=px.bar(top,x='dated_PTIs',y='driver',orientation='h',color_discrete_sequence=[GREEN])
-            fig.update_yaxes(autorange='reversed');show(fig,'view-overview-top',height=390)
-        else: st.info('No dated DVIRs in this period.')
-    with right:
-        st.markdown('**Time since last own DVIR**')
-        ages=roster.days_since_last
-        labels=pd.Series('No own DVIR',index=roster.index)
-        labels.loc[ages.between(0,2)]='0–2 days';labels.loc[ages.between(3,6)]='3–6 days';labels.loc[ages.ge(7)]='7+ days'
-        counts=labels.value_counts().rename_axis('last_done').reset_index(name='drivers')
-        show(px.bar(counts,x='drivers',y='last_done',orientation='h'),'view-overview-recency',height=390)
-    st.caption(f'Regular = at least {(len(c.dates)+1)//2} of {len(c.dates)} recorded dates. Calendar gaps are follow-up information, not verified compliance misses.')
-    left,right=st.columns(2)
-    with left: st.page_link('pages/2_Driver_Consistency.py',label='Open solo drivers with DVIR')
-    with right: st.page_link('pages/10_Without_DVIR.py',label='Open solo drivers without DVIR')
-    st.subheader('Driver follow-up · solo and co-driver together')
-    review_tab,compare_tab=st.tabs(['All roster drivers · DVIR coverage','Solo vs co-driver consistency'])
-    with review_tab:
-        st.caption('One row per primary roster driver. Own OR linked co-driver submissions count as coverage; neither submitting is the follow-up issue. Regular means at least 4 of 7 or 8 of 15 covered dates. Training is read only from this upload.')
-        combined=filters(roster.copy(),c,'overview-roster',coverage=True)
-        st.markdown(f'**{len(combined):,} matching drivers** · {int(combined.coverage_consistency.eq("Regular").sum()):,} regular · '
-                    f'{int(combined.coverage_consistency.eq("Intermittent").sum()):,} intermittent · {int((combined.covered_dates_in_period.eq(0) & combined.training_followup_eligible).sum()):,} neither driver submitted in this period')
-        visible=table(combined,'overview-roster',['dvir_coverage','coverage_consistency','covered_dates_in_period']+CORE,
-                      sort_columns=('driver_name','dated_PTIs','recorded_dates','last_done'))
-        heatmap(visible,c,'overview-roster')
-    with compare_tab:
-        compared=roster.assign(driver_group=roster.has_crew.map({True:'Co-driver',False:'Solo'}))
-        counts=compared.groupby(['driver_group','coverage_consistency']).size().reset_index(name='drivers')
-        fig=px.bar(counts,x='driver_group',y='drivers',color='coverage_consistency',text='drivers',barmode='stack',
-                   color_discrete_map={'Regular':GREEN,'Intermittent':YELLOW,'No record in period':GRAY,'Needs date detail':BLUE},
-                   labels={'driver_group':'Driver group','drivers':'Roster drivers','coverage_consistency':'Own or co-driver consistency'})
-        show(fig,'view-overview-group-consistency',height=360)
-        st.caption('Each primary roster driver counts once. Either co-driver submitting covers the roster driver. Actual own DVIR counts and source categories stay separate.')
+    from .tracking_overview import render_tracking_overview
+    c,summary=context_summary()
+    st.title('Fleet overview')
+    render_tracking_overview(c.report,c.end,table)
+    with st.expander('Detailed driver analysis and heatmap',expanded=False):
+        caption(c)
+        roster=summary[summary.in_roster]
+        metrics([('Roster drivers',len(roster)),('Solo with DVIR',int(roster.category.eq('Solo with DVIR').sum())),
+                 ('Co-driver roster',int(roster.category.eq('Co-driver').sum())),('Solo without DVIR',int(roster.category.eq('Solo without DVIR').sum()))])
+        st.caption('Each primary roster driver has exactly one source-based category: Co-driver first, then Solo with DVIR, then Solo without DVIR. Dates, status filters and graphs do not change that category. Partner detail is shown within the co-driver section.')
+        st.page_link('pages/11_TruckMate_Roster.py',label=f'Open main TruckMate roster · {len(roster):,} drivers · {int((~roster.has_covered_DVIR & roster.training_followup_eligible).sum()):,} needing no-DVIR follow-up')
+        partner_count=int(summary.loc[~summary.in_roster,'dated_PTIs'].sum())
+        st.markdown(f'**{int(roster.dated_PTIs.sum()):,} roster-driver DVIRs** and **{partner_count:,} partner/unmatched DVIRs** in this period · **{len(c.report.events):,} inspection entries** in the complete uploaded file.')
+        if roster.empty:
+            st.info('This upload contains no TruckMate roster rows. View Data checks & unmatched for its DVIR authors.');return
+        left,right=st.columns(2)
+        with left:
+            st.markdown('**DVIR consistency · own or co-driver submission**')
+            counts=roster.coverage_consistency.value_counts().rename_axis('activity').reset_index(name='drivers')
+            fig=px.bar(counts,x='drivers',y='activity',orientation='h',color='activity',
+                       color_discrete_map={'Regular':GREEN,'Intermittent':YELLOW,'No record in period':GRAY})
+            show(fig,'view-overview-consistency')
+        with right:
+            st.markdown('**Non-overlapping roster categories**')
+            counts=roster.category.value_counts().rename_axis('category').reset_index(name='drivers')
+            fig=px.pie(counts,names='category',values='drivers',hole=.65,color='category',
+                       color_discrete_map={'Co-driver':BLUE,'Solo with DVIR':GREEN,'Solo without DVIR':GRAY})
+            fig.update_traces(textinfo='label+value')
+            show(fig,'view-overview-categories')
+            st.caption(f'{int(roster.holiday_dates_in_period.gt(0).sum()):,} drivers have reported days off in this {len(c.dates)}-day period. Days off status is separate from category.')
+        daily_graph(roster,c,'overview')
+        left,right=st.columns(2)
+        with left:
+            st.markdown('**Highest own DVIR counts in the period**')
+            top=roster[roster.dated_PTIs.gt(0)].sort_values('dated_PTIs',ascending=False).head(15).copy()
+            if not top.empty:
+                top['driver']=top.driver_name+' ('+top.driver_id+')'
+                fig=px.bar(top,x='dated_PTIs',y='driver',orientation='h',color_discrete_sequence=[GREEN])
+                fig.update_yaxes(autorange='reversed');show(fig,'view-overview-top',height=390)
+            else: st.info('No dated DVIRs in this period.')
+        with right:
+            st.markdown('**Time since last own DVIR**')
+            ages=roster.days_since_last
+            labels=pd.Series('No own DVIR',index=roster.index)
+            labels.loc[ages.between(0,2)]='0–2 days';labels.loc[ages.between(3,6)]='3–6 days';labels.loc[ages.ge(7)]='7+ days'
+            counts=labels.value_counts().rename_axis('last_done').reset_index(name='drivers')
+            show(px.bar(counts,x='drivers',y='last_done',orientation='h'),'view-overview-recency',height=390)
+        st.caption(f'Regular = at least {(len(c.dates)+1)//2} of {len(c.dates)} recorded dates. Calendar gaps are follow-up information, not verified compliance misses.')
+        left,right=st.columns(2)
+        with left: st.page_link('pages/2_Driver_Consistency.py',label='Open solo drivers with DVIR')
+        with right: st.page_link('pages/10_Without_DVIR.py',label='Open solo drivers without DVIR')
+        st.subheader('Driver follow-up · solo and co-driver together')
+        review_tab,compare_tab=st.tabs(['All roster drivers · DVIR coverage','Solo vs co-driver consistency'])
+        with review_tab:
+            st.caption('One row per primary roster driver. Own OR linked co-driver submissions count as coverage; neither submitting is the follow-up issue. Regular means at least 4 of 7 or 8 of 15 covered dates. Training is read only from this upload.')
+            combined=filters(roster.copy(),c,'overview-roster',coverage=True)
+            st.markdown(f'**{len(combined):,} matching drivers** · {int(combined.coverage_consistency.eq("Regular").sum()):,} regular · '
+                        f'{int(combined.coverage_consistency.eq("Intermittent").sum()):,} intermittent · {int((combined.covered_dates_in_period.eq(0) & combined.training_followup_eligible).sum()):,} neither driver submitted in this period')
+            visible=table(combined,'overview-roster',['dvir_coverage','coverage_consistency','covered_dates_in_period']+CORE,
+                          sort_columns=('driver_name','dated_PTIs','recorded_dates','last_done'))
+            heatmap(visible,c,'overview-roster')
+        with compare_tab:
+            compared=roster.assign(driver_group=roster.has_crew.map({True:'Co-driver',False:'Solo'}))
+            counts=compared.groupby(['driver_group','coverage_consistency']).size().reset_index(name='drivers')
+            fig=px.bar(counts,x='driver_group',y='drivers',color='coverage_consistency',text='drivers',barmode='stack',
+                       color_discrete_map={'Regular':GREEN,'Intermittent':YELLOW,'No record in period':GRAY,'Needs date detail':BLUE},
+                       labels={'driver_group':'Driver group','drivers':'Roster drivers','coverage_consistency':'Own or co-driver consistency'})
+            show(fig,'view-overview-group-consistency',height=360)
+            st.caption('Each primary roster driver counts once. Either co-driver submitting covers the roster driver. Actual own DVIR counts and source categories stay separate.')
+
 
 
 

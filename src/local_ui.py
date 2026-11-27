@@ -34,7 +34,7 @@ def upload_changed(widget_key):
         clear_upload_state()
 
 
-def prepare(fixed_days=None):
+def prepare(fixed_days=None,tracking_overview=False):
     load_dotenv(ROOT/'.env')
     st.session_state.pop('context',None)  # Never reuse a legacy database-backed page context.
     sidebar=st.sidebar
@@ -97,6 +97,8 @@ def prepare(fixed_days=None):
         days=fixed_days
         sidebar.caption(f'Reporting period: Last {days} days')
     else:
+        if tracking_overview:
+            sidebar.caption('Overview snapshot: always 15 days. The period below controls the detailed analysis and heatmap.')
         days=sidebar.radio('Reporting period',[7,15],format_func=lambda n:f'Last {n} days',horizontal=True,index=1 if st.session_state.get('local-saved-days')==15 else 0,key='local-days')
     saved_end=st.session_state.get('local-saved-end',report.latest)
     end=sidebar.date_input('Report ending',value=saved_end,min_value=report.earliest,max_value=report.latest,key='local-report-end')

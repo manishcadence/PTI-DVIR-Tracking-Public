@@ -7,6 +7,31 @@ description: Maintain the Fleet PTI Streamlit dashboard, including n8n JSON inte
 
 ## Current user-approved rules
 
+- Overview uses colored metric cards (blue context, green recorded, amber review,
+  purple days off/crew) with visible descriptions. Driver tracking lists include
+  source findings, linked partner findings, review category and suggested next
+  steps; do not promote informational notes into source-review flags or assign
+  an unrelated author's findings. Keep contextual follow-up distinct from proven
+  missing required inspections. CSV retains the displayed review information.
+
+- Overview distinguishes days off plus DVIR anywhere in the period from an own
+  DVIR whose date actually matches a supplied day off. Training review counts
+  Not done with own dated DVIRs separately from co-driver-only coverage; do not
+  change training status based on submission evidence. Top five includes own
+  dated submissions across the whole uploaded file up to report end, even with
+  zero period submissions. Sort by latest date, then file count, then driver ID;
+  show both file and 15-day counts and provide the full drill-down.
+
+- Overview starts with a stakeholder 15-day snapshot ending on Report ending,
+  independent of the retained 7/15-day detailed analysis below. Count only primary
+  TruckMate roster drivers as people. Either linked driver submitting gives
+  coverage; count author inspection entries once in totals. Show days off,
+  training Done/Not done, recent dated training, consistency and daily trends.
+  For overview days-off grouping, zero AND Not supplied mean No days off reported;
+  preserve original information in drill-downs. Keep factual no-submission counts
+  separate from training eligibility for follow-up. Preserve detailed pages,
+  graphs, driver profiles and heatmaps.
+
 - Simple report: No PTI in entire file and Solo without DVIR have Days off
   filters. A positive selected-period count means Has days off; zero or missing
   means No days off reported, retaining the original Not supplied value. Default

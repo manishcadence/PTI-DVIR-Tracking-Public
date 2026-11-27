@@ -23,7 +23,8 @@ with st.sidebar:
     with st.expander('Backend',expanded=navigation.title in {page.title for page in backend_pages}):
         for page in backend_pages:
             st.page_link(page)
-prepare(fixed_days=15 if navigation.title=='Simple 15-day report' else None)
+prepare(fixed_days=15 if navigation.title=='Simple 15-day report' else None,
+        tracking_overview=navigation.title=='Overview')
 # Process selection callbacks after navigation has registered all pages.
 if st.session_state.pop('view-profile-open',False):
     st.switch_page('pages/3_Driver_Profiles.py')
